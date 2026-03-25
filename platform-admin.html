@@ -1,0 +1,2393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TableOS — Restaurant Management Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fraunces:ital,wght@0,300;0,600;1,300;1,500&display=swap" rel="stylesheet"/>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, collection, doc, getDocs, addDoc, updateDoc,
+    deleteDoc, setDoc, getDoc, query, where }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAAckuS3UP0NjhRIiAveOeUmpCSr5iNsw4",
+    authDomain: "life-dashboard-4410e.firebaseapp.com",
+    projectId: "life-dashboard-4410e",
+    storageBucket: "life-dashboard-4410e.firebasestorage.app",
+    messagingSenderId: "363693911960",
+    appId: "1:363693911960:web:2edeaed2f66d249b2a05ed"
+  };
+
+  const app   = initializeApp(firebaseConfig);
+  const auth  = getAuth(app);
+  const db    = getFirestore(app);
+  const storage = getStorage(app);
+
+  window.__auth    = auth;
+  window.__db      = db;
+  window.__storage = storage;
+  window.__fbOps   = {
+    collection, doc, getDocs, addDoc, updateDoc, deleteDoc, setDoc, getDoc,
+    query, where, ref, uploadBytes, getDownloadURL, deleteObject,
+    signInWithEmailAndPassword, signOut, onAuthStateChanged
+  };
+  window.dispatchEvent(new Event("firebase-ready"));
+</script>
+
+<style>
+/* ═══════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════ */
+:root {
+  --bg:        #f7f8fa;
+  --surface:   #ffffff;
+  --surface2:  #f1f3f6;
+  --border:    #e4e7ec;
+  --border-md: #d0d5dd;
+
+  --sidebar-bg:    #151c2c;
+  --sidebar-hover: rgba(255,255,255,0.06);
+  --sidebar-active:#1e2d45;
+
+  --teal:       #0d7a6b;
+  --teal-light: #10967f;
+  --teal-pale:  #e6f4f1;
+  --teal-dark:  #095c50;
+
+  --ink:     #0f172a;
+  --mid:     #475569;
+  --muted:   #94a3b8;
+  --white:   #ffffff;
+
+  --red:    #dc2626;
+  --red-bg: #fef2f2;
+  --green:  #16a34a;
+  --green-bg: #f0fdf4;
+  --amber:  #d97706;
+  --amber-bg: #fffbeb;
+  --blue:   #2563eb;
+  --blue-bg: #eff6ff;
+
+  --radius-sm: 6px;
+  --radius:    10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.04);
+  --shadow:    0 4px 16px rgba(15,23,42,0.08), 0 1px 4px rgba(15,23,42,0.04);
+  --shadow-lg: 0 12px 40px rgba(15,23,42,0.14), 0 4px 12px rgba(15,23,42,0.06);
+
+  --font: 'Sora', system-ui, sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
+
+  --sidebar-w: 240px;
+  --topbar-h: 60px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; -webkit-font-smoothing: antialiased; }
+body { font-family: var(--font); background: var(--bg); color: var(--ink); overflow-x: hidden; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-md); border-radius: 10px; }
+
+/* ═══════════════════════════════════════
+   VIEWS
+═══════════════════════════════════════ */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ═══════════════════════════════════════
+   LOGIN
+═══════════════════════════════════════ */
+#view-login {
+  min-height: 100vh;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--sidebar-bg);
+  position: relative;
+  overflow: hidden;
+}
+#view-login.active { display: flex; }
+
+#view-login::before {
+  content: '';
+  position: absolute;
+  width: 600px; height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(13,122,107,0.18) 0%, transparent 70%);
+  top: -200px; right: -150px;
+  pointer-events: none;
+}
+#view-login::after {
+  content: '';
+  position: absolute;
+  width: 400px; height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(13,122,107,0.1) 0%, transparent 70%);
+  bottom: -100px; left: -100px;
+  pointer-events: none;
+}
+
+.login-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 48px 44px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  z-index: 1;
+  animation: loginIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes loginIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+.login-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 32px;
+}
+.login-logo .logo-mark {
+  width: 38px; height: 38px;
+  background: var(--teal);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+  color: #fff;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.login-logo .logo-text {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+.login-logo .logo-text span { color: var(--teal); }
+
+.login-heading {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+.login-sub {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 28px;
+  line-height: 1.5;
+}
+
+.login-error {
+  background: var(--red-bg);
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  color: var(--red);
+  margin-bottom: 18px;
+  display: none;
+}
+.login-error.show { display: block; }
+
+.login-footer {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* ═══════════════════════════════════════
+   APP SHELL
+═══════════════════════════════════════ */
+#view-app {
+  min-height: 100vh;
+  display: none;
+}
+#view-app.active { display: flex; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--sidebar-bg);
+  min-height: 100vh;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  display: flex; flex-direction: column;
+  z-index: 200;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar-logo {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+}
+.sidebar-logo .logo-mark {
+  width: 32px; height: 32px;
+  background: var(--teal);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9rem; color: #fff; font-weight: 700;
+  flex-shrink: 0;
+}
+.sidebar-logo .logo-text {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+.sidebar-logo .logo-text span { color: #4ec9b9; }
+
+/* Restaurant context switcher */
+.restaurant-ctx {
+  margin: 12px 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: flex; align-items: center; gap: 10px;
+}
+.restaurant-ctx:hover { background: rgba(255,255,255,0.09); }
+.restaurant-ctx .ctx-avatar {
+  width: 28px; height: 28px;
+  background: var(--teal);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; color: #fff; font-weight: 700;
+  flex-shrink: 0;
+}
+.restaurant-ctx .ctx-info { flex: 1; min-width: 0; }
+.restaurant-ctx .ctx-name {
+  font-size: 0.8rem; font-weight: 600;
+  color: rgba(255,255,255,0.9);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.restaurant-ctx .ctx-role {
+  font-size: 0.68rem; color: rgba(255,255,255,0.4);
+  margin-top: 1px;
+}
+.restaurant-ctx .ctx-chevron { color: rgba(255,255,255,0.3); font-size: 0.7rem; }
+
+.nav-group { padding: 10px 0 4px; }
+.nav-group-label {
+  font-size: 0.62rem; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(255,255,255,0.25);
+  padding: 0 18px 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 18px;
+  font-size: 0.82rem; font-weight: 400;
+  color: rgba(255,255,255,0.55);
+  cursor: pointer;
+  transition: all 0.15s;
+  border-radius: 0;
+  position: relative;
+  margin: 1px 8px;
+  border-radius: var(--radius-sm);
+}
+.nav-item:hover { background: var(--sidebar-hover); color: rgba(255,255,255,0.85); }
+.nav-item.active {
+  background: var(--sidebar-active);
+  color: #fff;
+  font-weight: 500;
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute; left: 0; top: 20%; bottom: 20%;
+  width: 2.5px;
+  background: var(--teal-light);
+  border-radius: 0 2px 2px 0;
+  margin-left: -8px;
+}
+.nav-icon {
+  width: 18px; height: 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.95rem; flex-shrink: 0;
+  opacity: 0.7;
+}
+.nav-item.active .nav-icon,
+.nav-item:hover .nav-icon { opacity: 1; }
+
+.nav-badge {
+  margin-left: auto;
+  background: var(--teal);
+  color: #fff;
+  font-size: 0.6rem; font-weight: 700;
+  padding: 2px 6px; border-radius: 10px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 12px 8px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+.sidebar-user {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.sidebar-user:hover { background: rgba(255,255,255,0.06); }
+.sidebar-user .user-avatar {
+  width: 30px; height: 30px;
+  background: linear-gradient(135deg, var(--teal), #0a9b88);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.72rem; font-weight: 700; color: #fff;
+  flex-shrink: 0;
+}
+.sidebar-user .user-info { flex: 1; min-width: 0; }
+.sidebar-user .user-name {
+  font-size: 0.78rem; font-weight: 500;
+  color: rgba(255,255,255,0.8);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sidebar-user .user-role { font-size: 0.66rem; color: rgba(255,255,255,0.35); }
+.sidebar-user .logout-icon {
+  color: rgba(255,255,255,0.25); font-size: 0.85rem;
+  transition: color 0.15s;
+}
+.sidebar-user:hover .logout-icon { color: rgba(255,255,255,0.6); }
+
+/* ── MAIN ── */
+.main {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  height: var(--topbar-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 32px;
+  gap: 16px;
+  position: sticky; top: 0; z-index: 100;
+}
+.topbar-breadcrumb {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.82rem; color: var(--muted);
+  flex: 1;
+}
+.topbar-breadcrumb .crumb-sep { opacity: 0.4; }
+.topbar-breadcrumb .crumb-current {
+  font-weight: 600; color: var(--ink);
+}
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ── CONTENT ── */
+.content {
+  padding: 28px 32px;
+  flex: 1;
+}
+
+/* ── PANELS ── */
+.panel { display: none; animation: panelIn 0.2s ease both; }
+.panel.active { display: block; }
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ═══════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 0.82rem; font-weight: 500;
+  cursor: pointer; border: none;
+  transition: all 0.15s;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { background: var(--teal-light); box-shadow: 0 4px 12px rgba(13,122,107,0.3); transform: translateY(-1px); }
+.btn-secondary { background: var(--surface); color: var(--mid); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--border-md); color: var(--ink); background: var(--surface2); }
+.btn-danger { background: var(--red-bg); color: var(--red); border: 1px solid #fecaca; }
+.btn-danger:hover { background: var(--red); color: #fff; border-color: var(--red); }
+.btn-ghost { background: transparent; color: var(--mid); }
+.btn-ghost:hover { background: var(--surface2); color: var(--ink); }
+.btn-sm { padding: 5px 11px; font-size: 0.76rem; }
+.btn-xs { padding: 3px 8px; font-size: 0.72rem; border-radius: 5px; }
+.btn-icon { padding: 7px; border-radius: var(--radius-sm); }
+
+/* ═══════════════════════════════════════
+   FORMS
+═══════════════════════════════════════ */
+.form-group { margin-bottom: 16px; }
+.form-label {
+  display: block;
+  font-size: 0.78rem; font-weight: 500;
+  color: var(--mid);
+  margin-bottom: 6px;
+}
+.form-label .req { color: var(--red); margin-left: 2px; }
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: var(--surface);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(13,122,107,0.1);
+}
+.form-textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.form-hint { font-size: 0.73rem; color: var(--muted); margin-top: 4px; }
+
+.price-wrap { position: relative; }
+.price-wrap::before {
+  content: '$';
+  position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+  color: var(--muted); font-size: 0.85rem; pointer-events: none; z-index: 1;
+}
+.price-wrap .form-input { padding-left: 22px; }
+
+/* Toggle */
+.toggle-row { display: flex; align-items: center; gap: 10px; }
+.toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  position: absolute; inset: 0;
+  background: var(--border-md); border-radius: 20px;
+  cursor: pointer; transition: background 0.2s;
+}
+.toggle-track::before {
+  content: '';
+  position: absolute;
+  width: 14px; height: 14px;
+  left: 3px; top: 3px;
+  background: #fff; border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: var(--shadow-sm);
+}
+.toggle input:checked + .toggle-track { background: var(--teal); }
+.toggle input:checked + .toggle-track::before { transform: translateX(16px); }
+.toggle-label { font-size: 0.82rem; color: var(--mid); }
+
+/* ═══════════════════════════════════════
+   CARDS
+═══════════════════════════════════════ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+}
+.card-title { font-size: 0.9rem; font-weight: 600; color: var(--ink); }
+.card-subtitle { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+.card-body { padding: 20px; }
+.card-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+}
+
+/* ═══════════════════════════════════════
+   STAT CARDS
+═══════════════════════════════════════ */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s;
+}
+.stat-card:hover { box-shadow: var(--shadow); }
+.stat-label {
+  font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 2rem; font-weight: 600;
+  color: var(--ink); line-height: 1;
+  letter-spacing: -0.02em;
+}
+.stat-change {
+  font-size: 0.72rem; margin-top: 6px;
+  display: flex; align-items: center; gap: 4px;
+}
+.stat-change.up { color: var(--green); }
+.stat-change.neutral { color: var(--muted); }
+
+/* ═══════════════════════════════════════
+   TABLE
+═══════════════════════════════════════ */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  text-align: left;
+  font-size: 0.7rem; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.84rem;
+  vertical-align: middle;
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tbody tr { transition: background 0.12s; }
+.data-table tbody tr:hover td { background: #f8fafc; }
+
+/* ═══════════════════════════════════════
+   BADGES
+═══════════════════════════════════════ */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 20px;
+  font-size: 0.7rem; font-weight: 600;
+}
+.badge-green  { background: var(--green-bg); color: var(--green); }
+.badge-red    { background: var(--red-bg); color: var(--red); }
+.badge-amber  { background: var(--amber-bg); color: var(--amber); }
+.badge-blue   { background: var(--blue-bg); color: var(--blue); }
+.badge-teal   { background: var(--teal-pale); color: var(--teal-dark); }
+.badge-gray   { background: var(--surface2); color: var(--mid); }
+.badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+/* ═══════════════════════════════════════
+   MODAL
+═══════════════════════════════════════ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(15,23,42,0.45);
+  backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  width: 100%; max-width: 560px;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  animation: modalIn 0.22s cubic-bezier(0.16,1,0.3,1) both;
+}
+.modal-sm { max-width: 400px; }
+.modal-lg { max-width: 680px; }
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.modal-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+}
+.modal-title { font-size: 1rem; font-weight: 600; color: var(--ink); }
+.modal-subtitle { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+.modal-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 1.2rem; line-height: 1;
+  padding: 2px; transition: color 0.15s; flex-shrink: 0;
+}
+.modal-close:hover { color: var(--ink); }
+.modal-body { padding: 22px 24px; }
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 8px;
+  background: var(--bg);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+/* ═══════════════════════════════════════
+   TOAST
+═══════════════════════════════════════ */
+#toast-root {
+  position: fixed; bottom: 20px; right: 20px;
+  z-index: 9999; display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  background: var(--ink);
+  color: #fff;
+  padding: 11px 16px;
+  border-radius: var(--radius);
+  font-size: 0.82rem;
+  display: flex; align-items: center; gap: 10px;
+  box-shadow: var(--shadow-lg);
+  animation: toastIn 0.25s ease both;
+  max-width: 300px;
+  pointer-events: all;
+}
+.toast.success { border-left: 3px solid #4ade80; }
+.toast.error   { border-left: 3px solid #f87171; }
+.toast.info    { border-left: 3px solid #60a5fa; }
+@keyframes toastIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; } }
+
+/* ═══════════════════════════════════════
+   PAGE HEADERS
+═══════════════════════════════════════ */
+.page-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 24px; gap: 16px; flex-wrap: wrap;
+}
+.page-title {
+  font-family: var(--font-display);
+  font-size: 1.6rem; font-weight: 600;
+  color: var(--ink); letter-spacing: -0.02em; line-height: 1.2;
+}
+.page-subtitle { font-size: 0.83rem; color: var(--muted); margin-top: 4px; }
+.page-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+
+/* ═══════════════════════════════════════
+   EMPTY STATE
+═══════════════════════════════════════ */
+.empty-state {
+  text-align: center; padding: 56px 24px;
+}
+.empty-icon {
+  width: 52px; height: 52px;
+  background: var(--surface2);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; margin: 0 auto 14px;
+}
+.empty-title { font-size: 0.95rem; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+.empty-desc { font-size: 0.82rem; color: var(--muted); line-height: 1.6; max-width: 280px; margin: 0 auto 18px; }
+
+/* ═══════════════════════════════════════
+   LOADING
+═══════════════════════════════════════ */
+.loading-state { text-align: center; padding: 40px; }
+.spinner {
+  display: inline-block; width: 20px; height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--teal);
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════
+   SUPER ADMIN — RESTAURANT LIST
+═══════════════════════════════════════ */
+.restaurant-list { display: flex; flex-direction: column; gap: 1px; }
+.restaurant-row {
+  display: grid;
+  grid-template-columns: 36px 1fr 140px 110px 130px 100px;
+  align-items: center;
+  padding: 14px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.12s;
+  gap: 16px;
+}
+.restaurant-row:last-child { border-bottom: none; }
+.restaurant-row:hover { background: #f8fafc; }
+.restaurant-row.header {
+  background: var(--bg);
+  font-size: 0.7rem; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.restaurant-row.header:hover { background: var(--bg); }
+.r-avatar {
+  width: 32px; height: 32px;
+  background: var(--teal-pale);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 700;
+  color: var(--teal-dark);
+  flex-shrink: 0;
+}
+.r-name { font-weight: 500; font-size: 0.88rem; color: var(--ink); }
+.r-meta { font-size: 0.75rem; color: var(--muted); margin-top: 1px; }
+
+/* ═══════════════════════════════════════
+   HOURS TABLE
+═══════════════════════════════════════ */
+.hours-grid { display: flex; flex-direction: column; gap: 2px; }
+.hours-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 1fr 90px;
+  gap: 12px; align-items: center;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.hours-row:last-child { border-bottom: none; }
+.hours-day { font-size: 0.84rem; font-weight: 500; color: var(--ink); }
+
+/* ═══════════════════════════════════════
+   GALLERY
+═══════════════════════════════════════ */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+}
+.gallery-item {
+  position: relative; border-radius: var(--radius-sm);
+  overflow: hidden; aspect-ratio: 1;
+  background: var(--surface2);
+  cursor: pointer;
+}
+.gallery-item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.2s; }
+.gallery-item:hover img { transform: scale(1.04); }
+.gallery-delete {
+  position: absolute; inset: 0;
+  background: rgba(220,38,38,0.75);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.15s;
+  color: #fff; font-size: 1.2rem;
+}
+.gallery-item:hover .gallery-delete { opacity: 1; }
+.gallery-upload {
+  border: 2px dashed var(--border-md);
+  border-radius: var(--radius-sm);
+  aspect-ratio: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  cursor: pointer; gap: 6px;
+  color: var(--muted); font-size: 0.75rem;
+  transition: all 0.15s;
+  background: var(--bg);
+}
+.gallery-upload:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-pale); }
+.gallery-upload .up-icon { font-size: 1.4rem; }
+
+/* ═══════════════════════════════════════
+   SPECIALS
+═══════════════════════════════════════ */
+.specials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.special-card {
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--surface);
+  transition: box-shadow 0.15s, border-color 0.15s;
+  position: relative;
+}
+.special-card:hover { box-shadow: var(--shadow); border-color: var(--border-md); }
+.special-tag-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.special-title { font-size: 0.92rem; font-weight: 600; color: var(--ink); margin-bottom: 5px; }
+.special-desc { font-size: 0.78rem; color: var(--muted); line-height: 1.5; margin-bottom: 10px; }
+.special-footer { display: flex; gap: 6px; }
+
+/* ═══════════════════════════════════════
+   CATEGORY TABS
+═══════════════════════════════════════ */
+.cat-tabs {
+  display: flex; gap: 4px; flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.cat-tab {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.78rem; font-weight: 500;
+  cursor: pointer;
+  border: 1.5px solid var(--border);
+  color: var(--mid); background: var(--surface);
+  transition: all 0.15s;
+}
+.cat-tab:hover { border-color: var(--teal); color: var(--teal); }
+.cat-tab.active { background: var(--teal); color: #fff; border-color: var(--teal); }
+
+/* ═══════════════════════════════════════
+   SECTION DIVIDER
+═══════════════════════════════════════ */
+.divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 22px 0 18px;
+  font-size: 0.7rem; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted);
+}
+.divider::before, .divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+/* ═══════════════════════════════════════
+   CONFIG PANEL
+═══════════════════════════════════════ */
+.config-step {
+  display: flex; gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.config-step:last-child { border-bottom: none; }
+.config-step-num {
+  width: 28px; height: 28px; flex-shrink: 0;
+  background: var(--teal-pale);
+  color: var(--teal-dark);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700;
+}
+.config-step-title { font-size: 0.88rem; font-weight: 600; color: var(--ink); margin-bottom: 3px; }
+.config-step-desc { font-size: 0.78rem; color: var(--muted); line-height: 1.6; }
+.config-step-desc code {
+  background: var(--surface2); padding: 1px 5px;
+  border-radius: 4px; font-size: 0.76rem;
+}
+
+/* ═══════════════════════════════════════
+   SUPER ADMIN OVERVIEW CARDS
+═══════════════════════════════════════ */
+.overview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px; margin-top: 14px;
+}
+
+/* ═══════════════════════════════════════
+   DEV MODE BANNER
+═══════════════════════════════════════ */
+#dev-banner {
+  position: fixed;
+  bottom: 0; left: var(--sidebar-w); right: 0;
+  background: #1a1a2e;
+  border-top: 2px solid #f59e0b;
+  padding: 8px 24px;
+  display: flex; align-items: center; gap: 12px;
+  z-index: 9998;
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.7);
+}
+#dev-banner .dev-pill {
+  background: #f59e0b;
+  color: #1a1a2e;
+  font-weight: 700;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+#dev-banner .dev-hint { opacity: 0.55; }
+#dev-banner .dev-actions { margin-left: auto; display: flex; gap: 8px; }
+#dev-banner .dev-btn {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.75);
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: background 0.15s;
+}
+#dev-banner .dev-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+#dev-banner .dev-btn.active-role { border-color: #f59e0b; color: #f59e0b; }
+/* Push content up so banner doesn't cover it */
+body.dev-mode .content { padding-bottom: 56px; }
+
+/* ═══════════════════════════════════════
+   CONNECTION STATUS
+═══════════════════════════════════════ */
+.conn-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--muted); flex-shrink: 0;
+  transition: background 0.3s;
+}
+.conn-dot.connected { background: #4ade80; box-shadow: 0 0 6px #4ade8088; }
+.conn-dot.error { background: var(--red); }
+.conn-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.72rem; color: var(--muted);
+  padding: 6px 10px;
+}
+
+/* ═══════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════ */
+@media (max-width: 900px) {
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .form-row, .form-row-3 { grid-template-columns: 1fr; }
+  .restaurant-row { grid-template-columns: 36px 1fr 110px 90px; }
+  .restaurant-row > *:nth-child(5),
+  .restaurant-row > *:nth-child(6) { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════
+     LOGIN VIEW
+══════════════════════════════════ -->
+<div id="view-login" class="active">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-mark">T</div>
+      <div class="logo-text">Table<span>OS</span></div>
+    </div>
+    <h1 class="login-heading">Welcome back</h1>
+    <p class="login-sub">Sign in to manage your restaurant's content and settings.</p>
+    <div class="login-error" id="login-error"></div>
+    <div class="form-group">
+      <label class="form-label">Email address</label>
+      <input class="form-input" type="email" id="login-email" placeholder="you@restaurant.com" autocomplete="email"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input class="form-input" type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;" onclick="doLogin()" id="login-btn">
+      Sign In
+    </button>
+    <div class="login-footer">
+      Powered by TableOS · Restaurant Management Platform
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     APP VIEW
+══════════════════════════════════ -->
+<div id="view-app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">T</div>
+      <div class="logo-text">Table<span>OS</span></div>
+    </div>
+
+    <!-- Restaurant context -->
+    <div class="restaurant-ctx" id="ctx-switcher" onclick="toggleRestaurantPicker()">
+      <div class="ctx-avatar" id="ctx-avatar">—</div>
+      <div class="ctx-info">
+        <div class="ctx-name" id="ctx-name">Select Restaurant</div>
+        <div class="ctx-role" id="ctx-role">No restaurant selected</div>
+      </div>
+      <span class="ctx-chevron">▾</span>
+    </div>
+
+    <!-- Nav: Content -->
+    <div class="nav-group" id="nav-content-group">
+      <div class="nav-group-label">Content</div>
+      <div class="nav-item active" data-panel="menu" onclick="showPanel('menu')">
+        <span class="nav-icon">📋</span> Menu
+      </div>
+      <div class="nav-item" data-panel="specials" onclick="showPanel('specials')">
+        <span class="nav-icon">⭐</span> Specials
+      </div>
+      <div class="nav-item" data-panel="gallery" onclick="showPanel('gallery')">
+        <span class="nav-icon">🖼️</span> Gallery
+      </div>
+    </div>
+
+    <!-- Nav: Settings -->
+    <div class="nav-group" id="nav-settings-group">
+      <div class="nav-group-label">Settings</div>
+      <div class="nav-item" data-panel="hours" onclick="showPanel('hours')">
+        <span class="nav-icon">🕐</span> Hours
+      </div>
+      <div class="nav-item" data-panel="contact" onclick="showPanel('contact')">
+        <span class="nav-icon">📍</span> Contact
+      </div>
+    </div>
+
+    <!-- Nav: Super Admin -->
+    <div class="nav-group" id="nav-admin-group" style="display:none">
+      <div class="nav-group-label">Platform</div>
+      <div class="nav-item" data-panel="restaurants" onclick="showPanel('restaurants')">
+        <span class="nav-icon">🏪</span> Restaurants
+      </div>
+      <div class="nav-item" data-panel="superadmin" onclick="showPanel('superadmin')">
+        <span class="nav-icon">⚙️</span> Platform Settings
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="conn-status">
+        <div class="conn-dot" id="conn-dot"></div>
+        <span id="conn-text">Connecting…</span>
+      </div>
+      <div class="sidebar-user" onclick="doLogout()">
+        <div class="user-avatar" id="sidebar-avatar">?</div>
+        <div class="user-info">
+          <div class="user-name" id="sidebar-name">Loading…</div>
+          <div class="user-role" id="sidebar-role">—</div>
+        </div>
+        <span class="logout-icon">↪</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-breadcrumb">
+        <span id="topbar-restaurant">TableOS</span>
+        <span class="crumb-sep">/</span>
+        <span class="crumb-current" id="topbar-panel">Menu</span>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-secondary btn-sm" onclick="reloadPanel()">↻ Refresh</button>
+        <button class="btn btn-primary btn-sm" id="topbar-cta" onclick="topbarAction()">+ Add Item</button>
+      </div>
+    </header>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- ── MENU PANEL ── -->
+      <div class="panel active" id="panel-menu">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Menu</h1>
+            <p class="page-subtitle">Manage your menu items across all categories.</p>
+          </div>
+        </div>
+        <div class="cat-tabs" id="menu-cat-tabs">
+          <div class="cat-tab active" data-cat="all" onclick="filterMenuCat('all',this)">All Items</div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Menu Items</div>
+            </div>
+            <span id="menu-count" style="font-size:0.78rem;color:var(--muted)"></span>
+          </div>
+          <div id="menu-table-body">
+            <div class="loading-state"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SPECIALS PANEL ── -->
+      <div class="panel" id="panel-specials">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Specials</h1>
+            <p class="page-subtitle">Promotions and limited-time offers shown on your website.</p>
+          </div>
+        </div>
+        <div class="specials-grid" id="specials-grid">
+          <div class="loading-state"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- ── GALLERY PANEL ── -->
+      <div class="panel" id="panel-gallery">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Gallery</h1>
+            <p class="page-subtitle">Photos displayed on your restaurant's website.</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Photos</div>
+            <span style="font-size:0.75rem;color:var(--muted)">Stored in Firebase Storage</span>
+          </div>
+          <div class="card-body">
+            <div class="gallery-grid" id="gallery-grid">
+              <div class="loading-state"><div class="spinner"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── HOURS PANEL ── -->
+      <div class="panel" id="panel-hours">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Business Hours</h1>
+            <p class="page-subtitle">Set your weekly open and close times.</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" onclick="saveHours()">💾 Save Hours</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <div class="hours-grid" id="hours-grid">
+              <div class="loading-state"><div class="spinner"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CONTACT PANEL ── -->
+      <div class="panel" id="panel-contact">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Contact & Location</h1>
+            <p class="page-subtitle">Info displayed across your website and in search results.</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" onclick="saveContact()">💾 Save Contact</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body" id="contact-body">
+            <div class="loading-state"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── RESTAURANTS PANEL (SUPER ADMIN) ── -->
+      <div class="panel" id="panel-restaurants">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Restaurants</h1>
+            <p class="page-subtitle">All clients on the TableOS platform.</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" onclick="openModal('modal-new-restaurant')">+ New Restaurant</button>
+          </div>
+        </div>
+        <div class="stats-row" id="platform-stats">
+          <div class="stat-card">
+            <div class="stat-label">Total Restaurants</div>
+            <div class="stat-value" id="stat-total">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Active</div>
+            <div class="stat-value" id="stat-active">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Suspended</div>
+            <div class="stat-value" id="stat-suspended">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Monthly Revenue</div>
+            <div class="stat-value" id="stat-revenue">—</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="restaurant-row header">
+            <div></div>
+            <div>Restaurant</div>
+            <div>Owner Email</div>
+            <div>Status</div>
+            <div>Plan</div>
+            <div>Actions</div>
+          </div>
+          <div id="restaurants-list">
+            <div class="loading-state"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SUPER ADMIN SETTINGS PANEL ── -->
+      <div class="panel" id="panel-superadmin">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Platform Settings</h1>
+            <p class="page-subtitle">TableOS configuration and Firebase setup.</p>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-header"><div class="card-title">Firebase Configuration</div></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">API Key</label>
+                <input class="form-input" type="text" id="cfg-apiKey" placeholder="AIzaSy…" style="font-family:monospace;font-size:0.78rem"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Auth Domain</label>
+                <input class="form-input" type="text" id="cfg-authDomain" placeholder="project.firebaseapp.com"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Project ID</label>
+                <input class="form-input" type="text" id="cfg-projectId" placeholder="your-project-id"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Storage Bucket</label>
+                <input class="form-input" type="text" id="cfg-storageBucket" placeholder="project.appspot.com"/>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Messaging Sender ID</label>
+                <input class="form-input" type="text" id="cfg-senderId" placeholder="123456789"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">App ID</label>
+                <input class="form-input" type="text" id="cfg-appId" placeholder="1:123:web:abc…"/>
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="toast('Reload the page after updating firebaseConfig in the source file.','info')">Save Config</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Firestore Data Structure</div></div>
+          <div class="card-body">
+            <div class="config-step">
+              <div class="config-step-num">1</div>
+              <div>
+                <div class="config-step-title">Multi-tenant collection path</div>
+                <div class="config-step-desc">All restaurant data lives under <code>restaurants/{restaurantId}/</code>. Each restaurant's data is fully isolated.</div>
+              </div>
+            </div>
+            <div class="config-step">
+              <div class="config-step-num">2</div>
+              <div>
+                <div class="config-step-title">Sub-collections per restaurant</div>
+                <div class="config-step-desc"><code>menu</code> · <code>specials</code> · <code>gallery</code> · <code>info</code> (with docs <code>hours</code> and <code>contact</code>)</div>
+              </div>
+            </div>
+            <div class="config-step">
+              <div class="config-step-num">3</div>
+              <div>
+                <div class="config-step-title">Security rules</div>
+                <div class="config-step-desc">Set rules so <code>request.auth.uid == restaurantId</code> — each user can only access their own restaurant's data.</div>
+              </div>
+            </div>
+            <div class="config-step">
+              <div class="config-step-num">4</div>
+              <div>
+                <div class="config-step-title">Super admin role</div>
+                <div class="config-step-desc">Store <code>role: "superadmin"</code> in <code>users/{uid}</code> document to grant full platform access.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+  <!-- DEV MODE BANNER -->
+  <div id="dev-banner" style="display:none">
+    <span class="dev-pill">⚡ Dev Mode</span>
+    <span>Firebase bypassed — all changes are in-memory only</span>
+    <span class="dev-hint">· Set <code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px">DEV_MODE = false</code> to connect Firebase</span>
+    <div class="dev-actions">
+      <span style="opacity:0.4;font-size:0.7rem;align-self:center">View as:</span>
+      <button class="dev-btn active-role" id="dev-btn-admin" onclick="devSwitchRole('superadmin')">Super Admin</button>
+      <button class="dev-btn" id="dev-btn-owner" onclick="devSwitchRole('restaurant')">Restaurant Owner</button>
+    </div>
+  </div>
+</div><!-- /view-app -->
+
+<!-- ══════════════════════════════════
+     MODALS
+══════════════════════════════════ -->
+
+<!-- Menu Item Modal -->
+<div class="modal-overlay" id="modal-menu-item">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="menu-modal-title">Add Menu Item</div>
+        <div class="modal-subtitle">Item will appear on the public website immediately.</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-menu-item')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="menu-edit-id"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Item Name <span class="req">*</span></label>
+          <input class="form-input" type="text" id="menu-name" placeholder="e.g. Classic Burger"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category <span class="req">*</span></label>
+          <select class="form-select" id="menu-category">
+            <option value="">— Select category —</option>
+            <option value="breakfast">🍳 Breakfast</option>
+            <option value="apps">🍟 Appetizers &amp; Sides</option>
+            <option value="subs">🥖 Subs</option>
+            <option value="burgers">🍔 Burgers</option>
+            <option value="chicken">🍗 Chicken</option>
+            <option value="salads">🥗 Salads &amp; Wraps</option>
+            <option value="drinks">☕ Drinks</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="menu-desc" placeholder="Describe the item…"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Price</label>
+          <div class="price-wrap">
+            <input class="form-input" type="number" id="menu-price" placeholder="9.99" step="0.01" min="0"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Image URL <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+          <input class="form-input" type="url" id="menu-img" placeholder="https://…"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Sort Order</label>
+          <input class="form-input" type="number" id="menu-sort" placeholder="1" min="0"/>
+          <div class="form-hint">Lower number = appears first</div>
+        </div>
+        <div class="form-group" style="display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:4px">
+          <div class="toggle-row" style="margin-bottom:10px">
+            <label class="toggle"><input type="checkbox" id="menu-available" checked/><span class="toggle-track"></span></label>
+            <span class="toggle-label">Available</span>
+          </div>
+          <div class="toggle-row">
+            <label class="toggle"><input type="checkbox" id="menu-featured"/><span class="toggle-track"></span></label>
+            <span class="toggle-label">Featured / Fan Favorite</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-menu-item')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMenuItem()">Save Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- Special Modal -->
+<div class="modal-overlay" id="modal-special">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="special-modal-title">Add Special</div>
+        <div class="modal-subtitle">Promotions appear in the specials section of your website.</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-special')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="special-edit-id"/>
+      <div class="form-group">
+        <label class="form-label">Title <span class="req">*</span></label>
+        <input class="form-input" type="text" id="special-title" placeholder="e.g. Tuesday Taco Night"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="special-desc" placeholder="What's included, conditions, etc."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Tag / Discount Label</label>
+          <input class="form-input" type="text" id="special-tag" placeholder="e.g. 20% Off · BOGO · $5 Kids"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Valid Until</label>
+          <input class="form-input" type="text" id="special-until" placeholder="e.g. Every Tuesday · Dec 31"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="toggle-row">
+          <label class="toggle"><input type="checkbox" id="special-active" checked/><span class="toggle-track"></span></label>
+          <span class="toggle-label">Active — visible on website</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-special')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSpecial()">Save Special</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Restaurant Modal (Super Admin) -->
+<div class="modal-overlay" id="modal-new-restaurant">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Add New Restaurant</div>
+        <div class="modal-subtitle">Creates a Firebase Auth account and Firestore record.</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-new-restaurant')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Restaurant Name <span class="req">*</span></label>
+          <input class="form-input" type="text" id="nr-name" placeholder="The Family Table"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Owner Email <span class="req">*</span></label>
+          <input class="form-input" type="email" id="nr-email" placeholder="owner@restaurant.com"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Temporary Password <span class="req">*</span></label>
+          <input class="form-input" type="text" id="nr-password" placeholder="Min. 8 characters"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Plan</label>
+          <select class="form-select" id="nr-plan">
+            <option value="starter">Starter — $49/mo</option>
+            <option value="pro">Pro — $99/mo</option>
+            <option value="enterprise">Enterprise — $199/mo</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">City</label>
+          <input class="form-input" type="text" id="nr-city" placeholder="Springfield"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Website Domain</label>
+          <input class="form-input" type="text" id="nr-domain" placeholder="restaurantname.com"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="toggle-row">
+          <label class="toggle"><input type="checkbox" id="nr-active" checked/><span class="toggle-track"></span></label>
+          <span class="toggle-label">Account active immediately</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-new-restaurant')">Cancel</button>
+      <button class="btn btn-primary" onclick="createRestaurant()">Create Restaurant</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Delete -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Confirm Delete</div>
+      <button class="modal-close" onclick="closeModal('modal-confirm')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.85rem;color:var(--mid);line-height:1.6" id="confirm-msg">Are you sure you want to delete this item? This cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-confirm')">Cancel</button>
+      <button class="btn btn-danger" id="confirm-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast root -->
+<div id="toast-root"></div>
+
+<!-- Hidden file input -->
+<input type="file" id="gallery-input" accept="image/*" style="display:none" onchange="uploadPhoto(event)"/>
+
+<!-- ══════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════ -->
+<script>
+// ══════════════════════════════════════════════════════════════
+// DEV MODE — set to false when connecting real Firebase
+// ══════════════════════════════════════════════════════════════
+const DEV_MODE = false;
+
+// ── MOCK DATA ─────────────────────────────────────────────────
+const MOCK = {
+  user:  { uid: 'dev-uid-001', email: 'owner@coveredbridge.com' },
+  role:  'superadmin', // switch to 'restaurant' to test owner view
+  restaurantId:   'rest_covered_bridge',
+  restaurantName: 'Covered Bridge Convenience',
+
+  menu: [
+    { id:'m1', name:'Breakfast Sandwich', category:'breakfast', description:'Meat, Egg & Cheese on a Hard Roll, English Muffin, Bagel, or Toast.', price:4.75, available:true,  featured:true,  sortOrder:1 },
+    { id:'m2', name:'Three Egg Omelette', category:'breakfast', description:'Choice of Ham, Onions, Peppers, Tomato, Broccoli, Sausage, Bacon, or Mushroom.', price:8.00, available:true,  featured:false, sortOrder:2 },
+    { id:'m3', name:'Two Eggs',           category:'breakfast', description:'Two eggs cooked your way.', price:4.50, available:true,  featured:false, sortOrder:3 },
+    { id:'m4', name:'1/3 lb Angus Bacon Cheeseburger', category:'burgers', description:'Angus beef topped with crispy bacon and melted cheese.', price:10.50, available:true, featured:true, sortOrder:1 },
+    { id:'m5', name:'Swiss Mushroom Cheeseburger',      category:'burgers', description:'Topped with sautéed mushrooms and melted Swiss cheese.', price:5.75, available:true, featured:false, sortOrder:2 },
+    { id:'m6', name:'Boneless Wings (10)', category:'apps', description:'Crispy boneless wings tossed in your choice of sauce.', price:9.25, available:true, featured:true, sortOrder:1 },
+    { id:'m7', name:'Mozzarella Sticks (5)', category:'apps', description:'Golden fried mozzarella sticks with marinara sauce.', price:6.00, available:true, featured:false, sortOrder:2 },
+    { id:'m8', name:'Philly Steak & Mozzarella', category:'subs', description:'Grilled Philly steak with Peppers, Mushrooms & Onions.', price:9.00, available:true, featured:true, sortOrder:1 },
+    { id:'m9', name:'Chicken Bacon Ranch Wrap', category:'salads', description:'Grilled or Crispy Chicken with Bacon, Ranch, Lettuce, Tomatoes.', price:9.00, available:true, featured:true, sortOrder:1 },
+    { id:'m10', name:'Wine Slushies', category:'drinks', description:'Refreshing wine slushies. Must be 21+.', price:0, available:true, featured:true, sortOrder:1 },
+  ],
+
+  specials: [
+    { id:'s1', title:'Tuesday Wing Night', description:'Boneless wings 50% off every Tuesday from 4–8PM.', tag:'50% Off', validUntil:'Every Tuesday', active:true },
+    { id:'s2', title:'Weekend Breakfast Special', description:'Free coffee with any breakfast order Saturday & Sunday.', tag:'Free Coffee', validUntil:'Sat & Sun', active:true },
+    { id:'s3', title:'Kids Eat Free Monday', description:'One free kids meal per adult entrée on Mondays.', tag:'Kids Free', validUntil:'Closed Mondays', active:false },
+  ],
+
+  gallery: [
+    { id:'g1', url:'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=400&fit=crop', name:'Angus Burger' },
+    { id:'g2', url:'https://images.unsplash.com/photo-1551782450-a2132b4ba21d?w=400&h=400&fit=crop', name:'Breakfast Plate' },
+    { id:'g3', url:'https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?w=400&h=400&fit=crop', name:'Pizza' },
+    { id:'g4', url:'https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?w=400&h=400&fit=crop', name:'Wings' },
+    { id:'g5', url:'https://images.unsplash.com/photo-1484723091739-30a097e8f929?w=400&h=400&fit=crop', name:'Pancakes' },
+  ],
+
+  hours: {
+    Monday:    { open:'08:00', close:'20:00', closed:true  },
+    Tuesday:   { open:'08:00', close:'20:00', closed:true  },
+    Wednesday: { open:'08:00', close:'20:00', closed:false },
+    Thursday:  { open:'08:00', close:'20:00', closed:false },
+    Friday:    { open:'08:00', close:'20:00', closed:false },
+    Saturday:  { open:'08:00', close:'20:00', closed:false },
+    Sunday:    { open:'08:00', close:'20:00', closed:false },
+  },
+
+  contact: {
+    restaurantName:'Covered Bridge Convenience', tagline:'Good Food. Good People. Good Times.',
+    address:'2457 State Route 29', city:'Salisbury Center', stateZip:'NY 13454',
+    phone:'(315) 429-3434', email:'info@coveredbridgeconvenience.com',
+    facebook:'https://www.facebook.com/thecbc3434/',
+    instagram:'https://www.instagram.com/covered_bridge_convenience/',
+    about:'Family-owned restaurant, deli & convenience store serving Salisbury Center since 1991.',
+    parking:'Free parking available on-site.',
+  },
+
+  restaurants: [
+    { id:'rest_covered_bridge', name:'Covered Bridge Convenience', ownerEmail:'owner@coveredbridge.com', status:'active',    plan:'pro',        city:'Salisbury Center, NY', domain:'coveredbridgeconvenience.com' },
+    { id:'rest_mikes_diner',    name:"Mike's Diner",               ownerEmail:'mike@mikesdiner.com',    status:'active',    plan:'starter',    city:'Utica, NY',             domain:'mikesdiner.com' },
+    { id:'rest_plaza_grill',    name:'Plaza Grill',                 ownerEmail:'info@plazagrill.com',   status:'suspended', plan:'pro',        city:'Albany, NY',            domain:'plazagrill.com' },
+    { id:'rest_lakeside',       name:'Lakeside Eatery',             ownerEmail:'hello@lakeside.com',    status:'active',    plan:'enterprise', city:'Lake George, NY',       domain:'lakesideeatery.com' },
+    { id:'rest_corner_cafe',    name:'Corner Café',                 ownerEmail:'owner@cornercafe.com',  status:'pending',   plan:'starter',    city:'Rome, NY',              domain:'' },
+  ],
+};
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let currentUser   = null;
+let userRole      = 'restaurant';
+let activeRestaurantId = null;
+let activeRestaurantName = '';
+let currentPanel  = 'menu';
+let menuItems     = [];
+let currentMenuCat = 'all';
+let specialsCache = [];
+
+// In-memory store for dev mode edits
+let devStore = JSON.parse(JSON.stringify(MOCK));
+
+// ── BOOT — moved to DOMContentLoaded so all functions are defined first ───────
+
+async function resolveUserRole(user) {
+  try {
+    const { doc, getDoc } = window.__fbOps;
+    const snap = await getDoc(doc(window.__db, 'users', user.uid));
+    if (snap.exists()) {
+      const data = snap.data();
+      userRole = data.role === 'superadmin' ? 'superadmin' : 'restaurant';
+      activeRestaurantId = data.restaurantId || user.uid;
+      activeRestaurantName = data.restaurantName || user.email;
+    } else {
+      // First-time user — default to restaurant role, uid = restaurant id
+      userRole = 'restaurant';
+      activeRestaurantId = user.uid;
+      activeRestaurantName = user.email;
+    }
+  } catch(e) {
+    userRole = 'restaurant';
+    activeRestaurantId = user.uid;
+    activeRestaurantName = user.email;
+  }
+}
+
+// ── AUTH ─────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  if (DEV_MODE) {
+    currentUser = MOCK.user; userRole = MOCK.role;
+    activeRestaurantId = MOCK.restaurantId; activeRestaurantName = MOCK.restaurantName;
+    showApp(); return;
+  }
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-password').value;
+  const err   = document.getElementById('login-error');
+  const btn   = document.getElementById('login-btn');
+  if (!email || !pass) { showLoginError('Please enter your email and password.'); return; }
+  btn.textContent = 'Signing in…'; btn.disabled = true;
+  err.classList.remove('show');
+  try {
+    const { signInWithEmailAndPassword } = window.__fbOps;
+    await signInWithEmailAndPassword(window.__auth, email, pass);
+  } catch(e) {
+    const msgs = {
+      'auth/user-not-found': 'No account found with that email.',
+      'auth/wrong-password': 'Incorrect password. Please try again.',
+      'auth/invalid-email': 'Please enter a valid email address.',
+      'auth/too-many-requests': 'Too many attempts. Please wait before trying again.',
+    };
+    showLoginError(msgs[e.code] || 'Sign in failed. Please try again.');
+    btn.textContent = 'Sign In'; btn.disabled = false;
+  }
+}
+
+async function doLogout() {
+  if (DEV_MODE) { showLogin(); return; }
+  const { signOut } = window.__fbOps;
+  await signOut(window.__auth);
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg; el.classList.add('show');
+}
+
+// ── VIEW SWITCHING ────────────────────────────────────────────────────────────
+function showLogin() {
+  document.getElementById('view-login').classList.add('active');
+  document.getElementById('view-app').classList.remove('active');
+}
+
+function showApp() {
+  document.getElementById('view-login').classList.remove('active');
+  document.getElementById('view-app').classList.add('active');
+
+  // User info in sidebar
+  const initials = (currentUser.email || '?').slice(0,2).toUpperCase();
+  document.getElementById('sidebar-avatar').textContent = initials;
+  document.getElementById('sidebar-name').textContent = currentUser.email;
+  document.getElementById('sidebar-role').textContent = userRole === 'superadmin' ? 'Super Admin' : 'Restaurant Owner';
+
+  // Context switcher
+  updateCtx();
+
+  // Show/hide super admin nav
+  if (userRole === 'superadmin') {
+    document.getElementById('nav-admin-group').style.display = '';
+    showPanel('restaurants');
+  } else {
+    showPanel('menu');
+    loadMenu();
+  }
+  initDevMode();
+}
+
+function updateCtx() {
+  const name = activeRestaurantName || 'No restaurant';
+  document.getElementById('ctx-name').textContent = name;
+  document.getElementById('ctx-avatar').textContent = name.slice(0,2).toUpperCase();
+  document.getElementById('ctx-role').textContent = userRole === 'superadmin' ? 'Super Admin View' : 'Restaurant Owner';
+  document.getElementById('topbar-restaurant').textContent = name;
+}
+
+// ── PANEL NAVIGATION ──────────────────────────────────────────────────────────
+const PANEL_CONFIG = {
+  menu:        { title: 'Menu',             cta: '+ Add Item',     ctaFn: () => openMenuModal() },
+  specials:    { title: 'Specials',         cta: '+ Add Special',  ctaFn: () => openSpecialModal() },
+  gallery:     { title: 'Gallery',          cta: '⬆ Upload Photo', ctaFn: () => document.getElementById('gallery-input').click() },
+  hours:       { title: 'Hours',            cta: null },
+  contact:     { title: 'Contact',          cta: null },
+  restaurants: { title: 'Restaurants',      cta: '+ New Restaurant', ctaFn: () => openModal('modal-new-restaurant') },
+  superadmin:  { title: 'Platform Settings',cta: null },
+};
+
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-' + name)?.classList.add('active');
+  document.querySelector(`.nav-item[data-panel="${name}"]`)?.classList.add('active');
+
+  const cfg = PANEL_CONFIG[name] || {};
+  document.getElementById('topbar-panel').textContent = cfg.title || name;
+  const ctaBtn = document.getElementById('topbar-cta');
+  if (cfg.cta) { ctaBtn.textContent = cfg.cta; ctaBtn.style.display = ''; }
+  else { ctaBtn.style.display = 'none'; }
+
+  currentPanel = name;
+  if (!activeRestaurantId && name !== 'restaurants' && name !== 'superadmin') return;
+
+  if (name === 'menu')        loadMenu();
+  if (name === 'specials')    loadSpecials();
+  if (name === 'gallery')     loadGallery();
+  if (name === 'hours')       loadHours();
+  if (name === 'contact')     loadContact();
+  if (name === 'restaurants') loadRestaurants();
+}
+
+function topbarAction() {
+  const cfg = PANEL_CONFIG[currentPanel];
+  if (cfg?.ctaFn) cfg.ctaFn();
+}
+
+function reloadPanel() { showPanel(currentPanel); }
+
+// ── FIRESTORE PATH HELPER ─────────────────────────────────────────────────────
+function rCol(sub) {
+  const { collection } = window.__fbOps;
+  return collection(window.__db, 'restaurants', activeRestaurantId, sub);
+}
+function rDoc(sub, id) {
+  const { doc } = window.__fbOps;
+  return doc(window.__db, 'restaurants', activeRestaurantId, sub, id);
+}
+function rInfo(docId) {
+  const { doc } = window.__fbOps;
+  return doc(window.__db, 'restaurants', activeRestaurantId, 'info', docId);
+}
+
+// ── MENU ─────────────────────────────────────────────────────────────────────
+async function loadMenu() {
+  const wrap = document.getElementById('menu-table-body');
+  wrap.innerHTML = `<div class="loading-state"><div class="spinner"></div></div>`;
+  try {
+    if (DEV_MODE) {
+      menuItems = [...devStore.menu].sort((a,b) => (a.sortOrder||999)-(b.sortOrder||999));
+    } else {
+      const { getDocs } = window.__fbOps;
+      const snap = await getDocs(rCol('menu'));
+      menuItems = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a,b) => (a.sortOrder||999) - (b.sortOrder||999));
+    }
+    buildCategoryTabs();
+    renderMenuTable(currentMenuCat);
+  } catch(e) {
+    wrap.innerHTML = errState(e.message);
+  }
+}
+
+function buildCategoryTabs() {
+  const cats = [...new Set(menuItems.map(i => i.category).filter(Boolean))];
+  const tabs = document.getElementById('menu-cat-tabs');
+  tabs.innerHTML = `<div class="cat-tab ${currentMenuCat==='all'?'active':''}" data-cat="all" onclick="filterMenuCat('all',this)">All Items</div>`;
+  const labels = { breakfast:'🍳 Breakfast',apps:'🍟 Apps & Sides',subs:'🥖 Subs',burgers:'🍔 Burgers',chicken:'🍗 Chicken',salads:'🥗 Salads',drinks:'☕ Drinks' };
+  cats.forEach(c => {
+    const label = labels[c] || c;
+    tabs.innerHTML += `<div class="cat-tab ${currentMenuCat===c?'active':''}" data-cat="${c}" onclick="filterMenuCat('${c}',this)">${label}</div>`;
+  });
+}
+
+function filterMenuCat(cat, el) {
+  currentMenuCat = cat;
+  document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderMenuTable(cat);
+}
+
+function renderMenuTable(cat) {
+  const items = cat === 'all' ? menuItems : menuItems.filter(i => i.category === cat);
+  document.getElementById('menu-count').textContent = `${items.length} item${items.length!==1?'s':''}`;
+  const wrap = document.getElementById('menu-table-body');
+  if (!items.length) {
+    wrap.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">🍽️</div>
+      <div class="empty-title">No items yet</div>
+      <div class="empty-desc">Add your first menu item to get started.</div>
+    </div>`; return;
+  }
+  wrap.innerHTML = `<table class="data-table">
+    <thead><tr>
+      <th>Item</th><th>Category</th><th>Price</th><th>Status</th><th>Featured</th><th style="width:110px">Actions</th>
+    </tr></thead>
+    <tbody>
+      ${items.map(item => `<tr>
+        <td>
+          <div style="font-weight:500;color:var(--ink)">${esc(item.name)}</div>
+          ${item.description?`<div style="font-size:0.75rem;color:var(--muted);margin-top:2px">${esc(item.description.slice(0,55))}${item.description.length>55?'…':''}</div>`:''}
+        </td>
+        <td><span class="badge badge-blue">${esc(item.category||'—')}</span></td>
+        <td><strong style="color:var(--ink)">$${parseFloat(item.price||0).toFixed(2)}</strong></td>
+        <td>${item.available!==false?'<span class="badge badge-green"><span class="badge-dot"></span>Available</span>':'<span class="badge badge-red"><span class="badge-dot"></span>Unavailable</span>'}</td>
+        <td>${item.featured?'<span class="badge badge-amber">⭐ Featured</span>':'<span style="color:var(--muted);font-size:0.78rem">—</span>'}</td>
+        <td>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-secondary btn-xs" onclick="openMenuModal('${item.id}')">Edit</button>
+            <button class="btn btn-danger btn-xs" onclick="confirmDelete('menu','${item.id}','${esc(item.name)}')">Del</button>
+          </div>
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+function openMenuModal(id) {
+  document.getElementById('menu-modal-title').textContent = id ? 'Edit Menu Item' : 'Add Menu Item';
+  ['menu-edit-id','menu-name','menu-desc','menu-price','menu-img','menu-sort'].forEach(f => {
+    const el = document.getElementById(f); if (el) el.value = '';
+  });
+  document.getElementById('menu-category').value = '';
+  document.getElementById('menu-available').checked = true;
+  document.getElementById('menu-featured').checked = false;
+  if (id) {
+    const item = menuItems.find(i => i.id === id);
+    if (item) {
+      document.getElementById('menu-edit-id').value = id;
+      document.getElementById('menu-name').value = item.name || '';
+      document.getElementById('menu-category').value = item.category || '';
+      document.getElementById('menu-desc').value = item.description || '';
+      document.getElementById('menu-price').value = item.price || '';
+      document.getElementById('menu-img').value = item.imageUrl || '';
+      document.getElementById('menu-sort').value = item.sortOrder || '';
+      document.getElementById('menu-available').checked = item.available !== false;
+      document.getElementById('menu-featured').checked = !!item.featured;
+    }
+  }
+  openModal('modal-menu-item');
+}
+
+async function saveMenuItem() {
+  const id = gv('menu-edit-id');
+  const data = {
+    name:        gv('menu-name'),
+    category:    gv('menu-category'),
+    description: gv('menu-desc'),
+    price:       parseFloat(gv('menu-price')) || 0,
+    imageUrl:    gv('menu-img'),
+    sortOrder:   parseInt(gv('menu-sort')) || 999,
+    available:   document.getElementById('menu-available').checked,
+    featured:    document.getElementById('menu-featured').checked,
+    updatedAt:   new Date().toISOString(),
+  };
+  if (!data.name)     return toast('Item name is required','error');
+  if (!data.category) return toast('Please select a category','error');
+  try {
+    if (DEV_MODE) {
+      if (id) {
+        const idx = devStore.menu.findIndex(i => i.id === id);
+        if (idx > -1) devStore.menu[idx] = { ...devStore.menu[idx], ...data };
+      } else {
+        data.id = 'm' + Date.now(); data.createdAt = new Date().toISOString();
+        devStore.menu.push(data);
+      }
+    } else {
+      const { addDoc, updateDoc } = window.__fbOps;
+      if (id) await updateDoc(rDoc('menu', id), data);
+      else    { data.createdAt = new Date().toISOString(); await addDoc(rCol('menu'), data); }
+    }
+    closeModal('modal-menu-item');
+    toast(id ? 'Item updated ✓' : 'Item added ✓', 'success');
+    loadMenu();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+// ── SPECIALS ──────────────────────────────────────────────────────────────────
+async function loadSpecials() {
+  const grid = document.getElementById('specials-grid');
+  grid.innerHTML = `<div class="loading-state"><div class="spinner"></div></div>`;
+  try {
+    if (DEV_MODE) {
+      specialsCache = [...devStore.specials];
+    } else {
+      const { getDocs } = window.__fbOps;
+      const snap = await getDocs(rCol('specials'));
+      specialsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+    if (!specialsCache.length) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+        <div class="empty-icon">⭐</div>
+        <div class="empty-title">No specials yet</div>
+        <div class="empty-desc">Add your first promotion to display it on your website.</div>
+        <button class="btn btn-primary btn-sm" onclick="openSpecialModal()">+ Add Special</button>
+      </div>`; return;
+    }
+    grid.innerHTML = specialsCache.map(s => `
+      <div class="special-card">
+        <div class="special-tag-row">
+          ${s.tag?`<span class="badge badge-amber">${esc(s.tag)}</span>`:'<span></span>'}
+          ${s.active!==false?'<span class="badge badge-green"><span class="badge-dot"></span>Live</span>':'<span class="badge badge-gray">Hidden</span>'}
+        </div>
+        <div class="special-title">${esc(s.title)}</div>
+        <div class="special-desc">${esc(s.description||'')}</div>
+        ${s.validUntil?`<div style="font-size:0.72rem;color:var(--muted);margin-bottom:10px">📅 ${esc(s.validUntil)}</div>`:''}
+        <div class="special-footer">
+          <button class="btn btn-secondary btn-xs" onclick="openSpecialModal('${s.id}')">Edit</button>
+          <button class="btn btn-danger btn-xs" onclick="confirmDelete('specials','${s.id}','${esc(s.title)}')">Delete</button>
+        </div>
+      </div>`).join('');
+  } catch(e) { grid.innerHTML = errState(e.message); }
+}
+
+function openSpecialModal(id) {
+  document.getElementById('special-modal-title').textContent = id ? 'Edit Special' : 'Add Special';
+  ['special-edit-id','special-title','special-desc','special-tag','special-until'].forEach(f => {
+    document.getElementById(f).value = '';
+  });
+  document.getElementById('special-active').checked = true;
+  if (id) {
+    const s = specialsCache.find(x => x.id === id);
+    if (s) {
+      document.getElementById('special-edit-id').value = id;
+      document.getElementById('special-title').value = s.title || '';
+      document.getElementById('special-desc').value = s.description || '';
+      document.getElementById('special-tag').value = s.tag || '';
+      document.getElementById('special-until').value = s.validUntil || '';
+      document.getElementById('special-active').checked = s.active !== false;
+    }
+  }
+  openModal('modal-special');
+}
+
+async function saveSpecial() {
+  const id = gv('special-edit-id');
+  const data = {
+    title:       gv('special-title'),
+    description: gv('special-desc'),
+    tag:         gv('special-tag'),
+    validUntil:  gv('special-until'),
+    active:      document.getElementById('special-active').checked,
+    updatedAt:   new Date().toISOString(),
+  };
+  if (!data.title) return toast('Title is required','error');
+  try {
+    if (DEV_MODE) {
+      if (id) {
+        const idx = devStore.specials.findIndex(s => s.id === id);
+        if (idx > -1) devStore.specials[idx] = { ...devStore.specials[idx], ...data };
+      } else {
+        data.id = 's' + Date.now(); data.createdAt = new Date().toISOString();
+        devStore.specials.push(data);
+      }
+    } else {
+      const { addDoc, updateDoc } = window.__fbOps;
+      if (id) await updateDoc(rDoc('specials', id), data);
+      else    { data.createdAt = new Date().toISOString(); await addDoc(rCol('specials'), data); }
+    }
+    specialsCache = [];
+    closeModal('modal-special');
+    toast(id ? 'Special updated ✓' : 'Special added ✓', 'success');
+    loadSpecials();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+// ── GALLERY ───────────────────────────────────────────────────────────────────
+async function loadGallery() {
+  const grid = document.getElementById('gallery-grid');
+  grid.innerHTML = `<div class="loading-state"><div class="spinner"></div></div>`;
+  try {
+    let photos;
+    if (DEV_MODE) {
+      photos = [...devStore.gallery];
+    } else {
+      const { getDocs } = window.__fbOps;
+      const snap = await getDocs(rCol('gallery'));
+      photos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+    grid.innerHTML = `
+      <div class="gallery-upload" onclick="document.getElementById('gallery-input').click()">
+        <span class="up-icon">+</span><span>Upload Photo</span>
+      </div>
+      ${photos.map(p=>`
+        <div class="gallery-item">
+          <img src="${esc(p.url)}" loading="lazy" alt="${esc(p.name||'')}"/>
+          <div class="gallery-delete" onclick="deletePhoto('${p.id}','${esc(p.storagePath||'')}')">🗑️</div>
+        </div>`).join('')}`;
+  } catch(e) { grid.innerHTML = errState(e.message); }
+}
+
+async function uploadPhoto(event) {
+  const file = event.target.files[0]; if (!file) return;
+  toast('Uploading…','info');
+  try {
+    const { ref, uploadBytes, getDownloadURL, addDoc } = window.__fbOps;
+    const path = `restaurants/${activeRestaurantId}/gallery/${Date.now()}_${file.name}`;
+    const storageRef = ref(window.__storage, path);
+    const snap = await uploadBytes(storageRef, file);
+    const url  = await getDownloadURL(snap.ref);
+    await addDoc(rCol('gallery'), { url, name: file.name, storagePath: path, createdAt: new Date().toISOString() });
+    toast('Photo uploaded ✓','success');
+    loadGallery();
+  } catch(e) { toast('Upload failed: ' + e.message,'error'); }
+  event.target.value = '';
+}
+
+async function deletePhoto(docId, storagePath) {
+  if (!confirm('Delete this photo?')) return;
+  try {
+    if (DEV_MODE) {
+      devStore.gallery = devStore.gallery.filter(p => p.id !== docId);
+    } else {
+      const { deleteDoc, ref, deleteObject } = window.__fbOps;
+      await deleteDoc(rDoc('gallery', docId));
+      if (storagePath) { try { await deleteObject(ref(window.__storage, storagePath)); } catch(e){} }
+    }
+    toast('Photo deleted','success');
+    loadGallery();
+  } catch(e) { toast('Error: ' + e.message,'error'); }
+}
+
+// ── HOURS ─────────────────────────────────────────────────────────────────────
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+async function loadHours() {
+  const grid = document.getElementById('hours-grid');
+  grid.innerHTML = `<div class="loading-state"><div class="spinner"></div></div>`;
+  let data = {};
+  try {
+    if (DEV_MODE) {
+      data = devStore.hours;
+    } else {
+      const { getDoc } = window.__fbOps;
+      const snap = await getDoc(rInfo('hours'));
+      if (snap.exists()) data = snap.data();
+    }
+  } catch(e) {}
+  grid.innerHTML = DAYS.map(day => {
+    const d = data[day] || { open:'08:00', close:'20:00', closed: false };
+    return `<div class="hours-row">
+      <div class="hours-day">${day}</div>
+      <input class="form-input" type="time" id="ho-open-${day}" value="${d.open||'08:00'}" ${d.closed?'disabled':''}/>
+      <input class="form-input" type="time" id="ho-close-${day}" value="${d.close||'20:00'}" ${d.closed?'disabled':''}/>
+      <div class="toggle-row">
+        <label class="toggle">
+          <input type="checkbox" id="ho-closed-${day}" ${d.closed?'checked':''} onchange="toggleHoursDay('${day}')"/>
+          <span class="toggle-track"></span>
+        </label>
+        <span class="toggle-label" style="font-size:0.75rem">Closed</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleHoursDay(day) {
+  const closed = document.getElementById(`ho-closed-${day}`).checked;
+  document.getElementById(`ho-open-${day}`).disabled  = closed;
+  document.getElementById(`ho-close-${day}`).disabled = closed;
+}
+
+async function saveHours() {
+  const data = {};
+  DAYS.forEach(day => {
+    data[day] = {
+      open:   document.getElementById(`ho-open-${day}`)?.value || '08:00',
+      close:  document.getElementById(`ho-close-${day}`)?.value || '20:00',
+      closed: document.getElementById(`ho-closed-${day}`)?.checked || false,
+    };
+  });
+  try {
+    if (DEV_MODE) {
+      devStore.hours = data;
+    } else {
+      const { setDoc } = window.__fbOps;
+      await setDoc(rInfo('hours'), data);
+    }
+    toast('Hours saved ✓','success');
+  } catch(e) { toast('Error: ' + e.message,'error'); }
+}
+
+// ── CONTACT ───────────────────────────────────────────────────────────────────
+async function loadContact() {
+  const body = document.getElementById('contact-body');
+  body.innerHTML = `<div class="loading-state"><div class="spinner"></div></div>`;
+  let d = {};
+  try {
+    if (DEV_MODE) {
+      d = devStore.contact;
+    } else {
+      const { getDoc } = window.__fbOps;
+      const snap = await getDoc(rInfo('contact'));
+      if (snap.exists()) d = snap.data();
+    }
+  } catch(e) {}
+  body.innerHTML = `
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Restaurant Name</label><input class="form-input" id="ct-name" value="${esc(d.restaurantName||'')}" placeholder="The Family Table"/></div>
+      <div class="form-group"><label class="form-label">Tagline</label><input class="form-input" id="ct-tagline" value="${esc(d.tagline||'')}" placeholder="Home cooking since 1985"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Street Address</label><input class="form-input" id="ct-address" value="${esc(d.address||'')}" placeholder="123 Main Street"/></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">City</label><input class="form-input" id="ct-city" value="${esc(d.city||'')}" placeholder="Springfield"/></div>
+      <div class="form-group"><label class="form-label">State &amp; ZIP</label><input class="form-input" id="ct-state" value="${esc(d.stateZip||'')}" placeholder="NY 13454"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="ct-phone" value="${esc(d.phone||'')}" placeholder="(555) 555-5555"/></div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" id="ct-email" value="${esc(d.email||'')}" placeholder="hello@restaurant.com"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Google Maps Embed URL</label><input class="form-input" id="ct-maps" value="${esc(d.mapsEmbedUrl||'')}" placeholder="https://maps.google.com/…"/></div>
+    <div class="divider">Social Media</div>
+    <div class="form-row-3">
+      <div class="form-group"><label class="form-label">Facebook</label><input class="form-input" id="ct-fb" value="${esc(d.facebook||'')}" placeholder="https://facebook.com/…"/></div>
+      <div class="form-group"><label class="form-label">Instagram</label><input class="form-input" id="ct-ig" value="${esc(d.instagram||'')}" placeholder="https://instagram.com/…"/></div>
+      <div class="form-group"><label class="form-label">X / Twitter</label><input class="form-input" id="ct-tw" value="${esc(d.twitter||'')}" placeholder="https://x.com/…"/></div>
+    </div>
+    <div class="divider">About</div>
+    <div class="form-group"><label class="form-label">About / Description</label><textarea class="form-textarea" id="ct-about" placeholder="Brief about us text…">${esc(d.about||'')}</textarea></div>
+    <div class="form-group"><label class="form-label">Parking &amp; Access Notes</label><input class="form-input" id="ct-parking" value="${esc(d.parking||'')}" placeholder="Free parking available behind the building…"/></div>
+  `;
+}
+
+async function saveContact() {
+  const data = {
+    restaurantName: gv('ct-name'), tagline: gv('ct-tagline'),
+    address: gv('ct-address'), city: gv('ct-city'), stateZip: gv('ct-state'),
+    phone: gv('ct-phone'), email: gv('ct-email'), mapsEmbedUrl: gv('ct-maps'),
+    facebook: gv('ct-fb'), instagram: gv('ct-ig'), twitter: gv('ct-tw'),
+    about: gv('ct-about'), parking: gv('ct-parking'),
+    updatedAt: new Date().toISOString(),
+  };
+  try {
+    if (DEV_MODE) {
+      devStore.contact = { ...devStore.contact, ...data };
+    } else {
+      const { setDoc } = window.__fbOps;
+      await setDoc(rInfo('contact'), data);
+    }
+    toast('Contact info saved ✓','success');
+  } catch(e) { toast('Error: ' + e.message,'error'); }
+}
+
+// ── SUPER ADMIN — RESTAURANTS ─────────────────────────────────────────────────
+async function loadRestaurants() {
+  const list = document.getElementById('restaurants-list');
+  list.innerHTML = `<div class="loading-state"><div class="spinner"></div></div>`;
+  try {
+    let restaurants;
+    if (DEV_MODE) {
+      restaurants = [...devStore.restaurants];
+    } else {
+      const { getDocs, collection } = window.__fbOps;
+      const snap = await getDocs(collection(window.__db, 'restaurants'));
+      restaurants = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    // Stats
+    document.getElementById('stat-total').textContent = restaurants.length;
+    document.getElementById('stat-active').textContent = restaurants.filter(r => r.status === 'active').length;
+    document.getElementById('stat-suspended').textContent = restaurants.filter(r => r.status === 'suspended').length;
+    const plans = { starter: 49, pro: 99, enterprise: 199 };
+    const rev = restaurants.filter(r => r.status === 'active').reduce((sum, r) => sum + (plans[r.plan] || 0), 0);
+    document.getElementById('stat-revenue').textContent = '$' + rev.toLocaleString();
+
+    if (!restaurants.length) {
+      list.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">🏪</div>
+        <div class="empty-title">No restaurants yet</div>
+        <div class="empty-desc">Add your first client restaurant to get started.</div>
+      </div>`; return;
+    }
+
+    list.innerHTML = restaurants.map(r => `
+      <div class="restaurant-row">
+        <div class="r-avatar">${(r.name||'?').slice(0,2).toUpperCase()}</div>
+        <div>
+          <div class="r-name">${esc(r.name||'Unnamed')}</div>
+          <div class="r-meta">${esc(r.domain||r.city||'—')}</div>
+        </div>
+        <div style="font-size:0.82rem;color:var(--mid)">${esc(r.ownerEmail||'—')}</div>
+        <div>${r.status==='active'
+          ? '<span class="badge badge-green"><span class="badge-dot"></span>Active</span>'
+          : r.status==='suspended'
+          ? '<span class="badge badge-red"><span class="badge-dot"></span>Suspended</span>'
+          : '<span class="badge badge-gray">Pending</span>'}</div>
+        <div><span class="badge badge-teal">${(r.plan||'starter').charAt(0).toUpperCase()+(r.plan||'starter').slice(1)}</span></div>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-secondary btn-xs" onclick="switchToRestaurant('${r.id}','${esc(r.name||r.id)}')">Manage</button>
+          <button class="btn btn-danger btn-xs" onclick="toggleSuspend('${r.id}','${r.status}')">
+            ${r.status==='suspended'?'Activate':'Suspend'}
+          </button>
+        </div>
+      </div>`).join('');
+  } catch(e) { list.innerHTML = errState(e.message); }
+}
+
+async function createRestaurant() {
+  const data = {
+    name:       gv('nr-name'),
+    ownerEmail: gv('nr-email'),
+    plan:       document.getElementById('nr-plan').value,
+    city:       gv('nr-city'),
+    domain:     gv('nr-domain'),
+    status:     document.getElementById('nr-active').checked ? 'active' : 'pending',
+    createdAt:  new Date().toISOString(),
+  };
+  if (!data.name || !data.ownerEmail) return toast('Name and email are required','error');
+  try {
+    const newId = data.ownerEmail.replace(/[^a-z0-9]/gi,'_').toLowerCase() + '_' + Date.now();
+    if (DEV_MODE) {
+      devStore.restaurants.push({ id: newId, ...data });
+    } else {
+      const { doc, setDoc } = window.__fbOps;
+      await setDoc(doc(window.__db, 'restaurants', newId), data);
+    }
+    toast(`Restaurant "${data.name}" created ✓`, 'success');
+    closeModal('modal-new-restaurant');
+    loadRestaurants();
+  } catch(e) { toast('Error: ' + e.message,'error'); }
+}
+
+async function switchToRestaurant(id, name) {
+  activeRestaurantId = id;
+  activeRestaurantName = name;
+  updateCtx();
+  showPanel('menu');
+  toast(`Viewing: ${name}`,'info');
+}
+
+async function toggleSuspend(id, currentStatus) {
+  const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended';
+  try {
+    if (DEV_MODE) {
+      const r = devStore.restaurants.find(r => r.id === id);
+      if (r) r.status = newStatus;
+    } else {
+      const { doc, updateDoc } = window.__fbOps;
+      await updateDoc(doc(window.__db, 'restaurants', id), { status: newStatus });
+    }
+    toast(`Account ${newStatus} ✓`,'success');
+    loadRestaurants();
+  } catch(e) { toast('Error: ' + e.message,'error'); }
+}
+
+// ── DELETE ────────────────────────────────────────────────────────────────────
+function confirmDelete(col, id, name) {
+  document.getElementById('confirm-msg').textContent = `Delete "${name}"? This cannot be undone.`;
+  const btn = document.getElementById('confirm-btn');
+  btn.onclick = async () => {
+    try {
+      if (DEV_MODE) {
+        devStore[col] = devStore[col].filter(i => i.id !== id);
+      } else {
+        const { deleteDoc } = window.__fbOps;
+        await deleteDoc(rDoc(col, id));
+      }
+      closeModal('modal-confirm');
+      toast('Deleted','success');
+      if (col === 'menu')     loadMenu();
+      if (col === 'specials') { specialsCache = []; loadSpecials(); }
+    } catch(e) { toast('Error: ' + e.message,'error'); }
+  };
+  openModal('modal-confirm');
+}
+
+// ── MODAL HELPERS ─────────────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+
+// Enter key on login
+document.getElementById('login-password')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+function toast(msg, type = 'info') {
+  const root = document.getElementById('toast-root');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const icons = { success:'✓', error:'✗', info:'i' };
+  t.innerHTML = `<span style="font-weight:700;flex-shrink:0">${icons[type]||'·'}</span><span>${msg}</span>`;
+  root.appendChild(t);
+  setTimeout(() => {
+    t.style.transition = '0.3s'; t.style.opacity = '0'; t.style.transform = 'translateX(16px)';
+    setTimeout(() => t.remove(), 300);
+  }, 3500);
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function gv(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function errState(msg) { return `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Error loading data</div><div class="empty-desc">${esc(msg)}</div></div>`; }
+function setConn(ok) {
+  const dot = document.getElementById('conn-dot');
+  const txt = document.getElementById('conn-text');
+  dot.className = 'conn-dot ' + (ok ? 'connected' : 'error');
+  txt.textContent = ok ? 'Connected' : 'Disconnected';
+}
+function toggleRestaurantPicker() { /* future: dropdown to switch restaurants */ }
+
+// ── BOOT ─────────────────────────────────────────────────────────────────────
+// Runs after all functions are defined
+window.addEventListener('DOMContentLoaded', () => {
+  if (DEV_MODE) {
+    currentUser          = MOCK.user;
+    userRole             = MOCK.role;
+    activeRestaurantId   = MOCK.restaurantId;
+    activeRestaurantName = MOCK.restaurantName;
+    setConn(true);
+    showApp();
+  } else {
+    window.addEventListener('firebase-ready', () => {
+      const { onAuthStateChanged } = window.__fbOps;
+      onAuthStateChanged(window.__auth, async (user) => {
+        if (user) {
+          currentUser = user;
+          await resolveUserRole(user);
+          showApp();
+        } else {
+          showLogin();
+        }
+      });
+      setConn(true);
+    });
+  }
+});
+
+// ── DEV MODE HELPERS ─────────────────────────────────────────────────────────
+function initDevMode() {
+  if (!DEV_MODE) return;
+  document.body.classList.add('dev-mode');
+  document.getElementById('dev-banner').style.display = 'flex';
+  // Highlight active role button
+  document.getElementById('dev-btn-admin').classList.toggle('active-role', userRole === 'superadmin');
+  document.getElementById('dev-btn-owner').classList.toggle('active-role', userRole === 'restaurant');
+}
+
+function devSwitchRole(role) {
+  userRole = role;
+  if (role === 'superadmin') {
+    activeRestaurantId   = MOCK.restaurantId;
+    activeRestaurantName = MOCK.restaurantName;
+    document.getElementById('nav-admin-group').style.display = '';
+    showPanel('restaurants');
+  } else {
+    activeRestaurantId   = MOCK.restaurantId;
+    activeRestaurantName = MOCK.restaurantName;
+    document.getElementById('nav-admin-group').style.display = 'none';
+    showPanel('menu');
+  }
+  document.getElementById('sidebar-role').textContent = role === 'superadmin' ? 'Super Admin' : 'Restaurant Owner';
+  document.getElementById('ctx-role').textContent     = role === 'superadmin' ? 'Super Admin View' : 'Restaurant Owner';
+  document.getElementById('dev-btn-admin').classList.toggle('active-role', role === 'superadmin');
+  document.getElementById('dev-btn-owner').classList.toggle('active-role', role === 'restaurant');
+  updateCtx();
+  toast(`Switched to ${role === 'superadmin' ? 'Super Admin' : 'Restaurant Owner'} view`, 'info');
+}
+</script>
+</body>
+</html>
